@@ -72,7 +72,6 @@ try:
 except AttributeError:
     product["Number of reviews"] = None
 
-
 try:
     screen_diagonal = driver.find_element(By.XPATH, "(//div[contains(@class, 'br-pr-chr-item')][2]//span)[4]")
     product["Screen diagonal"] = screen_diagonal.get_attribute("textContent").strip()
@@ -92,6 +91,24 @@ def clean(text):
 
 specs = {}
 
+spec_blocks = driver.find_elements(By.XPATH, "//div[contains(@class,'br-pr-chr-item')]")
+
+for block in spec_blocks:
+    rows = block.find_elements(By.XPATH, ".//div[span]")
+
+    for row in rows:
+        spans = row.find_elements(By.TAG_NAME, "span")
+
+        if len(spans) >= 2:
+            key = spans[0].text.strip()
+            value = spans[1].text.strip()
+            links = spans[1].find_elements(By.TAG_NAME, "a")
+
+            if links:
+                link_texts = [a.text.strip() for a in links if a.text.strip()]
+                value = " , ".join(link_texts)
+
+            specs[key] = value
 
 
 product["Characteristics"] = specs
@@ -109,19 +126,16 @@ def write_product_to_excel(product, filename="selenium_output.xlsx"):
         wb = Workbook()
         ws = wb.active
 
-    # Начинаем запись с первой свободной строки
     row = ws.max_row + 1 if ws.max_row > 1 else 1
 
     def write_dict(d, start_row):
         current_row = start_row
         for key, value in d.items():
             if isinstance(value, dict):
-                # Если значение - словарь, рекурсивно записываем его
                 ws.cell(row=current_row, column=1, value=f"{key}:")
                 current_row += 1
                 current_row = write_dict(value, current_row)
             elif isinstance(value, list):
-                # Если значение - список, записываем все элементы
                 ws.cell(row=current_row, column=1, value=f"{key}:")
                 current_row += 1
                 for item in value:
@@ -136,8 +150,7 @@ def write_product_to_excel(product, filename="selenium_output.xlsx"):
     write_dict(product, row)
 
     wb.save(filename)
-    print(f"Данные успешно записаны в {filename}")
 
-# Использование:
+
 write_product_to_excel(product)
 
