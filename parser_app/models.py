@@ -14,6 +14,7 @@ class Product(models.Model):
     manufacturer = models.CharField(max_length=100, null=True, blank=True)
     screen_diagonal = models.CharField(max_length=100, null=True, blank=True)
     resolution = models.CharField(max_length=100, null=True, blank=True)
+    number_of_reviews = models.CharField(max_length=100, null=True, blank=True)
 
     photos = models.JSONField(default=list, null=True, blank=True)
     characteristics = models.JSONField(default=dict, null=True, blank=True)

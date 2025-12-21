@@ -32,6 +32,7 @@ try:
 except AttributeError:
     product["Full name"] = None
 
+
 try:
     product["Color"] = soup.find("a", title=lambda t: t and "Колір" in t).text.strip()
 except AttributeError:
@@ -43,6 +44,13 @@ try:
     ).text.strip()
 except AttributeError:
     product["Memory sizes"] = None
+
+try:
+    product["Manufacturer"] = (
+        soup.find(name="span", string="Виробник").find_next_sibling("span").text.strip()
+    )
+except AttributeError:
+    product["Manufacturer"] = None
 
 try:
     product["Price regular"] = " ".join(
@@ -89,6 +97,11 @@ try:
 except AttributeError:
     product["Display resolution"] = None
 
+try:
+    product["URL"] = soup.select_one('link[rel="canonical"]').get("href")
+except AttributeError:
+    product["URL"] = None
+
 
 def clean(text):
     text = " ".join(text.stripped_strings)
@@ -112,7 +125,7 @@ try:
         if rows:
             specs[section] = rows
 
-    product["Characteristics"] = {"Characteristics": specs}
+    product["Characteristics"] = specs
 except AttributeError:
     product["Characteristics"] = None
 
@@ -122,20 +135,22 @@ print(product)
 
 product_data = {
     "name": product.get("Full name"),
+    "color": product.get("Color"),
     "price_regular": product.get("Price regular"),
     "price_promo": product.get("Price promo"),
-    "color": product.get("Color"),
     "memory": product.get("Memory size"),
     "manufacturer": product.get("Manufacturer"),
+    "photos": product.get("Photo"),
+    "number_of_reviews": product.get("Number of reviews"),
     "screen_diagonal": product.get("Screen diagonal"),
     "resolution": product.get("Display resolution"),
-    "photos": product.get("Photo"),
     "characteristics": product.get("Characteristics"),
+    "url": product.get("URL"),
     "status": "Done",
 }
 
 obj, created = Product.objects.update_or_create(
-    product_id=product.get("id"), defaults=product_data
+    product_id=f"REQ_BS4_{product.get("id")}", defaults=product_data
 )
 
 if created:

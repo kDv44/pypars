@@ -33,6 +33,26 @@ with sync_playwright() as p:
         product["Full name"] = None
 
     try:
+        color = page.locator("(//div[contains(@class, 'br-pr-chr-item')][10]//span)[6]")
+        product["Color"] = color.inner_text().strip()
+    except AttributeError:
+        product["Color"] = None
+
+    try:
+        memory = page.locator(
+            "//div[contains(@class, 'br-pr-chr-item')]//a[contains(@title, \"Вбудована пам'ять\")]"
+        )
+        product["Memory size"] = memory.inner_text().strip()
+    except AttributeError:
+        product["Memory size"] = None
+
+    try:
+        xpath = "//div[contains(@class, 'br-pr-chr-item')]//span[text()='Виробник']/following-sibling::span"
+        product["Manufacturer"] = page.locator(xpath).first.inner_text().strip()
+    except:
+        product["Manufacturer"] = None
+
+    try:
         price_block = page.locator("div.br-pr-price.main-price-block").first
         if price_block.count() > 0:
             raw_price = price_block.evaluate("node => node.innerText")
@@ -51,35 +71,6 @@ with sync_playwright() as p:
             product["Price promo"] = None
     except:
         product["Price promo"] = None
-
-    try:
-        brand_link = page.locator("a[href*='filter=3-']").first
-        product["Manufacturer"] = brand_link.inner_text().strip()
-    except:
-        try:
-            brand = page.evaluate(
-                """() => {
-                    const ld = JSON.parse(document.querySelector('script[type="application/ld+json"]').innerText);
-                    return ld.brand ? ld.brand.name : null;
-                }"""
-            )
-            product["Manufacturer"] = brand
-        except:
-            product["Manufacturer"] = None
-
-    try:
-        color = page.locator("(//div[contains(@class, 'br-pr-chr-item')][10]//span)[6]")
-        product["Color"] = color.inner_text().strip()
-    except AttributeError:
-        product["Color"] = None
-
-    try:
-        memory = page.locator(
-            "//div[contains(@class, 'br-pr-chr-item')]//a[contains(@title, \"Вбудована пам'ять\")]"
-        )
-        product["Memory size"] = memory.inner_text().strip()
-    except AttributeError:
-        product["Memory size"] = None
 
     try:
         img_elems = page.locator("div.product-block-right img.br-main-img")
@@ -120,6 +111,11 @@ with sync_playwright() as p:
     except AttributeError:
         product["Display resolution"] = None
 
+    try:
+        product["URL"] = page.locator('link[rel="canonical"]').get_attribute("href")
+    except AttributeError:
+        product["URL"] = None
+
     specs_dict = {}
     spec_blocks = page.locator("xpath=//div[contains(@class,'br-pr-chr-item')]")
     for i in range(spec_blocks.count()):
@@ -143,15 +139,17 @@ with sync_playwright() as p:
 
 product_data = {
     "name": product.get("Full name"),
+    "color": product.get("Color"),
     "price_regular": product.get("Price regular"),
     "price_promo": product.get("Price promo"),
-    "color": product.get("Color"),
     "memory": product.get("Memory size"),
     "manufacturer": product.get("Manufacturer"),
+    "photos": product.get("Photo"),
+    "number_of_reviews": product.get("Number of reviews"),
     "screen_diagonal": product.get("Screen diagonal"),
     "resolution": product.get("Display resolution"),
-    "photos": product.get("Photo"),
     "characteristics": product.get("Characteristics"),
+    "url": product.get("URL"),
     "status": "Done",
 }
 

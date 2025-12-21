@@ -8,6 +8,9 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.options import Options
 
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as ec
+
 from parser_app.models import Product
 
 
@@ -51,10 +54,11 @@ time.sleep(3)
 
 
 try:
+    raw_name = driver.find_element(By.TAG_NAME, "h1").get_attribute("textContent")
     product["Full name"] = (
-        driver.find_element(By.TAG_NAME, "h1").get_attribute("textContent").strip()
+        raw_name.replace("Мобільний телефон ", "").split("(")[0].strip()
     )
-except:
+except Exception:
     product["Full name"] = None
 
 try:
@@ -133,10 +137,10 @@ try:
         "textContent"
     )
     product["Number of reviews"] = (
-        re.search(r"\d+", rev_text).group() if re.search(r"\d+", rev_text) else "0"
+        re.search(r"\d+", rev_text).group() if re.search(r"\d+", rev_text) else None
     )
 except:
-    product["Number of reviews"] = "0"
+    product["Number of reviews"] = None
 
 try:
     product["Screen diagonal"] = (
@@ -161,45 +165,101 @@ try:
 except:
     product["Display resolution"] = None
 
+try:
+    product["URL"] = driver.find_element(
+        By.XPATH, "//link[@rel='canonical']"
+    ).get_attribute("href")
+except:
+    product["URL"] = None
+
 driver.execute_script("window.scrollBy(0, 600);")
 time.sleep(1)
 
+driver.execute_script("window.scrollBy(0, 600);")
+time.sleep(2)
+
+try:
+
+    wait = WebDriverWait(driver, 10)
+    all_specs_button = wait.until(
+        ec.presence_of_element_located(
+            (
+                By.XPATH,
+                "//button[contains(@class, 'br-prs-button')][.//span[text()='Всі характеристики']]",
+            )
+        )
+    )
+
+    driver.execute_script(
+        "arguments[0].scrollIntoView({block: 'center'});", all_specs_button
+    )
+    time.sleep(1)
+
+    driver.execute_script("arguments[0].click();", all_specs_button)
+
+    print("Кнопку 'Всі характеристики' натиснуто")
+    time.sleep(2)
+except Exception as e:
+    print(f"Кнопку не вдалося натиснути (можливо, список вже відкритий): {e}")
+
+
 specs = {}
+
+
 spec_blocks = driver.find_elements(By.XPATH, "//div[contains(@class,'br-pr-chr-item')]")
 
 for block in spec_blocks:
+    try:
+        section_name = block.find_element(By.TAG_NAME, "h3").text.strip()
+    except:
+        section_name = "Загальне"
+
+    section_data = {}
     rows = block.find_elements(By.XPATH, ".//div[span]")
+
     for row in rows:
         spans = row.find_elements(By.TAG_NAME, "span")
         if len(spans) >= 2:
             key = spans[0].text.strip()
-            value = spans[1].get_attribute("textContent").strip()
+
+            raw_value = spans[1].get_attribute("textContent")
+            value = " ".join(raw_value.replace("\xa0", " ").split()).strip()
 
             links = spans[1].find_elements(By.TAG_NAME, "a")
             if links:
-                value = ", ".join([a.text.strip() for a in links if a.text.strip()])
+                link_texts = [a.text.strip() for a in links if a.text.strip()]
+                if link_texts:
+                    value = ", ".join(link_texts)
 
             if key:
-                specs[key] = value
+                section_data[key] = value
+
+    if section_data:
+        specs[section_name] = section_data
+
+product["Characteristics"] = specs
+
 
 print(product)
 
 product_data = {
     "name": product.get("Full name"),
+    "color": product.get("Color"),
     "price_regular": product.get("Price regular"),
     "price_promo": product.get("Price promo"),
-    "color": product.get("Color"),
     "memory": product.get("Memory size"),
     "manufacturer": product.get("Manufacturer"),
+    "photos": product.get("Photo"),
+    "number_of_reviews": product.get("Number of reviews"),
     "screen_diagonal": product.get("Screen diagonal"),
     "resolution": product.get("Display resolution"),
-    "photos": product.get("Photo"),
     "characteristics": product.get("Characteristics"),
+    "url": product.get("URL"),
     "status": "Done",
 }
 
 obj, created = Product.objects.update_or_create(
-    product_id=product.get("id"), defaults=product_data
+    product_id=f"SEL_{product.get("id")}", defaults=product_data
 )
 
 if created:
